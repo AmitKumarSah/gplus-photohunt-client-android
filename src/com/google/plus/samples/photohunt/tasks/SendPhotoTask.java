@@ -19,6 +19,7 @@ package com.google.plus.samples.photohunt.tasks;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.UnsupportedEncodingException;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
@@ -37,6 +38,7 @@ import com.google.plus.samples.photohunt.Endpoints;
 import com.google.plus.samples.photohunt.HttpUtils;
 import com.google.plus.samples.photohunt.auth.AuthUtil;
 import com.google.plus.samples.photohunt.model.Photo;
+import com.google.plus.samples.photohunt.model.UploadUrl;
 
 /**
  * Uploads photos to PhotoHunt.
@@ -87,9 +89,9 @@ public abstract class SendPhotoTask extends AsyncTask<String, Void, Photo> {
             BitmapFactory.Options options = new BitmapFactory.Options();
             options.inSampleSize = 2;
             Bitmap uploadBitmap = BitmapFactory.decodeFile(localImageUri, options);
-            ExifInterface exif = new ExifInterface(localImageUri); 
+            ExifInterface exif = new ExifInterface(localImageUri);
             int exifOrientation = exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, 0);
-    
+
             uploadBitmap = fixOrientation(uploadBitmap, exifOrientation);
 
             conn = (HttpURLConnection) new URL(uploadUrl).openConnection();
@@ -118,7 +120,7 @@ public abstract class SendPhotoTask extends AsyncTask<String, Void, Photo> {
             outStream.writeBytes(END_BOUNDARY);
 
             int responseCode = conn.getResponseCode();
-            
+
             if (responseCode == 200) {
                 responseBody = HttpUtils.getContent(conn.getInputStream()).toString("UTF-8");
                 result = new Gson().fromJson(responseBody, Photo.class);
@@ -148,7 +150,7 @@ public abstract class SendPhotoTask extends AsyncTask<String, Void, Photo> {
         }
 
         Log.v(TAG, "Upload image [" + localImageUri + "]: " + responseBody);
-        
+
         return result;
     }
 
@@ -173,7 +175,7 @@ public abstract class SendPhotoTask extends AsyncTask<String, Void, Photo> {
     private String fetchUploadUrl() {
         HttpURLConnection urlConnection = null;
         String uploadUrl = null;
-        
+
         try {
             urlConnection = (HttpURLConnection) new URL(Endpoints.PHOTO_UPLOAD).openConnection();
             urlConnection.setRequestMethod("POST");
@@ -183,21 +185,19 @@ public abstract class SendPhotoTask extends AsyncTask<String, Void, Photo> {
             AuthUtil.setAuthHeaders(urlConnection);
 
             int responseCode = urlConnection.getResponseCode();
-            
+
             if (responseCode != 200) {
                 Log.e(TAG, "Unable to fetch upload URL (" + Endpoints.PHOTO_UPLOAD + "): "
                         + responseCode);
                 return null;
             }
 
-            InputStream is = urlConnection.getInputStream();
-            uploadUrl = new String(HttpUtils.getContent(is).toByteArray(), "UTF-8");
-            
+            String responseContent = new String(
+                HttpUtils.getContent(urlConnection.getInputStream()).toByteArray(), "UTF-8");
+
+            uploadUrl = new Gson().fromJson(responseContent, UploadUrl.class).url;
+
             Log.v(TAG, "Obtained an upload URL: " + uploadUrl);
-        } catch (MalformedURLException e) {
-            Log.e(TAG, e.getMessage(), e);
-        } catch (UnsupportedEncodingException e) {
-            Log.e(TAG, e.getMessage(), e);
         } catch (IOException e) {
             Log.e(TAG, e.getMessage(), e);
         } finally {

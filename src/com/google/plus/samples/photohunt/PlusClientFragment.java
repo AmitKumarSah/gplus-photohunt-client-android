@@ -256,7 +256,7 @@ public final class PlusClientFragment extends Fragment
     @Override
     public void onStart() {
         super.onStart();
-        if (mRequestCode == INVALID_REQUEST_CODE && !mIsConnecting) {
+        if (!mPlusClient.isConnected() && mRequestCode == INVALID_REQUEST_CODE && !mIsConnecting) {
             mLastConnectionResult = null;
             mPlusClient.connect();
             mIsConnecting = true;
